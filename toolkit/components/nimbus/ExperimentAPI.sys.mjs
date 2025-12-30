@@ -17,6 +17,8 @@ const lazy = XPCOMUtils.declareLazy({
   FirstStartup: "resource://gre/modules/FirstStartup.sys.mjs",
   NimbusMigrations: "resource://nimbus/lib/Migrations.sys.mjs",
   NimbusTelemetry: "resource://nimbus/lib/Telemetry.sys.mjs",
+  ProfilesDatastoreService:
+    "moz-src:///toolkit/profile/ProfilesDatastoreService.sys.mjs",
   RemoteSettings: "resource://services-settings/remote-settings.sys.mjs",
   RemoteSettingsExperimentLoader:
     "resource://nimbus/lib/RemoteSettingsExperimentLoader.sys.mjs",
@@ -213,6 +215,8 @@ export const ExperimentAPI = new (class {
     this._annotateCrashReport = this._annotateCrashReport.bind(this);
     this._removeCrashReportAnnotator =
       this._removeCrashReportAnnotator.bind(this);
+    this._handleStoreWillSwitch = this._handleStoreWillSwitch.bind(this);
+    this._handleStoreSwitched = this._handleStoreSwitched.bind(this);
 
     ChromeUtils.defineLazyGetter(this, "_remoteSettingsClient", function () {
       return lazy.RemoteSettings(lazy.COLLECTION_ID);
@@ -400,6 +404,16 @@ export const ExperimentAPI = new (class {
       await this._onEnabledPrefChange();
     }
 
+    // Register for ProfilesDatastoreService store switch events
+    lazy.ProfilesDatastoreService.on(
+      "store-will-switch",
+      this._handleStoreWillSwitch
+    );
+    lazy.ProfilesDatastoreService.on(
+      "store-switched",
+      this._handleStoreSwitched
+    );
+
     if (this.#firstStartupTimestamps) {
       this.#firstStartupTimestamps.nimbusInitEnd = ChromeUtils.now();
     }
@@ -466,6 +480,15 @@ export const ExperimentAPI = new (class {
     Services.prefs.removeObserver(
       Prefs.TELEMETRY_ENABLED,
       this._onEnabledPrefChange
+    );
+
+    lazy.ProfilesDatastoreService.off(
+      "store-will-switch",
+      this._handleStoreWillSwitch
+    );
+    lazy.ProfilesDatastoreService.off(
+      "store-switched",
+      this._handleStoreSwitched
     );
 
     this.#initializedPromise = null;
@@ -744,6 +767,55 @@ export const ExperimentAPI = new (class {
     const timestamps = this.#firstStartupTimestamps;
     this.#firstStartupTimestamps = null;
     return timestamps;
+  }
+
+  _handleStoreWillSwitch(_event, { addCleanupPromise }) {
+    const cleanupPromise = (async () => {
+      try {
+        const manager = this.#experimentManager;
+
+        if (manager) {
+          await manager.unenrollAll(lazy.UnenrollmentCause.StoreSwitch());
+        }
+        if (manager?.store) {
+          await manager.store.clearSyncStore();
+        }
+        if (manager?.store?._db) {
+          await manager.store._db.finalize();
+        }
+
+        this.#experimentLoader?.disable();
+      } catch (error) {
+        lazy.log.error("Failed to prepare for store switch:", error);
+      }
+    })();
+
+    addCleanupPromise(cleanupPromise);
+  }
+
+  async _handleStoreSwitched() {
+    try {
+      lazy.CleanupManager.removeCleanupHandler(this._removeCrashReportAnnotator);
+      this.#experimentManager?.store.off("update", this._annotateCrashReport);
+      this.#experimentLoader = null;
+      this.#experimentManager = null;
+
+      let manager = this.manager;
+      await manager.store.init();
+      await manager.onStartup();
+
+      if (CRASHREPORTER_ENABLED) {
+        manager.store.on("update", this._annotateCrashReport);
+        this._annotateCrashReport();
+        lazy.CleanupManager.addCleanupHandler(
+          ExperimentAPI._removeCrashReportAnnotator
+        );
+      }
+
+      await this._rsLoader.enable({ forceSync: true });
+    } catch (error) {
+      lazy.log.error("Failed to handle store switch:", error);
+    }
   }
 })();
 
