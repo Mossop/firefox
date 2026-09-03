@@ -5026,6 +5026,24 @@ class _SessionStore {
       }
     }
 
+    // Also prune closed windows: remove matching _closedTabs and tabs, and
+    // drop the window entirely if no tabs remain.
+    for (let i = this.#closedWindows.length - 1; i >= 0; i--) {
+      let winData = this.#closedWindows[i];
+
+      winData._closedTabs = winData._closedTabs.filter(
+        closedTab => closedTab.state.userContextId != userContextId
+      );
+      winData.tabs = winData.tabs.filter(
+        tab => tab.userContextId != userContextId
+      );
+
+      if (!winData.tabs.length) {
+        this.#removeClosedWindow(i);
+        this.#saveableClosedWindowData.delete(winData);
+      }
+    }
+
     // Notify of changes to closed objects.
     this.#notifyOfClosedObjectsChange();
   }

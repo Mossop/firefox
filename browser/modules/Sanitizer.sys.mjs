@@ -13,6 +13,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/ChatStore.sys.mjs",
   ContextualIdentityService:
     "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
+  EphemeralContainerWatcher:
+    "resource:///modules/policies/EphemeralContainerWatcher.sys.mjs",
   FormHistory: "resource://gre/modules/FormHistory.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrincipalsCollector: "resource://gre/modules/PrincipalsCollector.sys.mjs",
@@ -1088,6 +1090,12 @@ async function sanitizeOnShutdown(progress) {
     sanitizeNewTabSegregation();
     removePendingSanitization("newtab-container");
     needsSyncSavePrefs = true;
+  }
+
+  try {
+    await lazy.EphemeralContainerWatcher.clearAll();
+  } catch (e) {
+    console.error("Failed to clear ephemeral container data on shutdown", e);
   }
 
   if (needsSyncSavePrefs) {
