@@ -78,12 +78,13 @@ struct StreamFinder {
 
 }  // namespace
 
-template <class Codec>
 void MediaChannelParametersFromMediaDescription(
-    const MediaContentDescriptionImpl<Codec>* desc,
+    const RtpMediaContentDescription* desc,
     const RtpHeaderExtensions& extensions,
     bool is_stream_active,
     MediaChannelParameters* params) {
+  RTC_DCHECK(desc->type() == MEDIA_TYPE_AUDIO ||
+             desc->type() == MEDIA_TYPE_VIDEO);
   params->is_stream_active = is_stream_active;
   params->codecs = desc->codecs();
   // TODO(bugs.webrtc.org/11513): See if we really need
@@ -95,9 +96,8 @@ void MediaChannelParametersFromMediaDescription(
   params->rtcp.remote_estimate = desc->remote_estimate();
 }
 
-template <class Codec>
 void RtpSendParametersFromMediaDescription(
-    const MediaContentDescriptionImpl<Codec>* desc,
+    const RtpMediaContentDescription* desc,
     webrtc::RtpExtension::Filter extensions_filter,
     SenderParameters* send_params) {
   RtpHeaderExtensions extensions =
@@ -902,7 +902,7 @@ bool VoiceChannel::SetLocalContent_w(const MediaContentDescription* content,
 
   bool criteria_modified = false;
   if (webrtc::RtpTransceiverDirectionHasRecv(content->direction())) {
-    for (const AudioCodec& codec : content->as_audio()->codecs()) {
+    for (const Codec& codec : content->codecs()) {
       if (MaybeAddHandledPayloadType(codec.id)) {
         criteria_modified = true;
       }
@@ -911,7 +911,7 @@ bool VoiceChannel::SetLocalContent_w(const MediaContentDescription* content,
 
   last_recv_params_ = recv_params;
 
-  if (!UpdateLocalStreams_w(content->as_audio()->streams(), type, error_desc)) {
+  if (!UpdateLocalStreams_w(content->streams(), type, error_desc)) {
     RTC_DCHECK(!error_desc.empty());
     return false;
   }
@@ -1095,7 +1095,7 @@ bool VideoChannel::SetLocalContent_w(const MediaContentDescription* content,
 
   bool criteria_modified = false;
   if (webrtc::RtpTransceiverDirectionHasRecv(content->direction())) {
-    for (const VideoCodec& codec : content->as_video()->codecs()) {
+    for (const Codec& codec : content->codecs()) {
       if (MaybeAddHandledPayloadType(codec.id))
         criteria_modified = true;
     }
