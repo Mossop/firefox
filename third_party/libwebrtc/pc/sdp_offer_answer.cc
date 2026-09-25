@@ -120,6 +120,12 @@ const char kDefaultStreamId[] = "default";
 static const char kDefaultAudioSenderId[] = "defaulta0";
 static const char kDefaultVideoSenderId[] = "defaultv0";
 
+// NOTE: Duplicated from pc/used_ids.h
+static const int kLastDynamicPayloadTypeLowerRange = 63;
+
+static const int kFirstDynamicPayloadTypeUpperRange = 96;
+static const int kLastDynamicPayloadTypeUpperRange = 127;
+
 void NoteAddIceCandidateResult(int result) {
   RTC_HISTOGRAM_ENUMERATION("WebRTC.PeerConnection.AddIceCandidate", result,
                             kAddIceCandidateMax);
@@ -432,18 +438,9 @@ RTCError ValidateBundledPayloadTypes(
         continue;
       }
       const auto type = media_description->type();
-      if (type == cricket::MEDIA_TYPE_AUDIO) {
-        RTC_DCHECK(media_description->as_audio());
-        for (const auto& c : media_description->as_audio()->codecs()) {
-          auto error = FindDuplicateCodecParameters(
-              c.ToCodecParameters(), payload_to_codec_parameters);
-          if (!error.ok()) {
-            return error;
-          }
-        }
-      } else if (type == cricket::MEDIA_TYPE_VIDEO) {
-        RTC_DCHECK(media_description->as_video());
-        for (const auto& c : media_description->as_video()->codecs()) {
+      if (type == cricket::MEDIA_TYPE_AUDIO ||
+          type == cricket::MEDIA_TYPE_VIDEO) {
+        for (const auto& c : media_description->codecs()) {
           auto error = FindDuplicateCodecParameters(
               c.ToCodecParameters(), payload_to_codec_parameters);
           if (!error.ok()) {
@@ -555,6 +552,53 @@ RTCError ValidateSsrcGroups(const cricket::SessionDescription& description) {
                                    "' has a ssrc-group with semantics " +
                                    group.semantics +
                                    " and an unexpected number of SSRCs.");
+        }
+      }
+    }
+  }
+  return RTCError::OK();
+}
+
+RTCError ValidatePayloadTypes(const cricket::SessionDescription& description) {
+  for (const ContentInfo& content : description.contents()) {
+    if (content.type != MediaProtocolType::kRtp) {
+      continue;
+    }
+    const auto media_description = content.media_description();
+    RTC_DCHECK(media_description);
+    if (content.rejected || !media_description ||
+        !media_description->has_codecs()) {
+      continue;
+    }
+    const auto type = media_description->type();
+    if (type == cricket::MEDIA_TYPE_AUDIO) {
+      RTC_DCHECK(media_description->as_audio());
+      for (const auto& codec : media_description->as_audio()->codecs()) {
+        if (codec.id < 0 || codec.id > kLastDynamicPayloadTypeUpperRange ||
+            (media_description->rtcp_mux() &&
+             (codec.id > kLastDynamicPayloadTypeLowerRange &&
+              codec.id < kFirstDynamicPayloadTypeUpperRange))) {
+          LOG_AND_RETURN_ERROR(
+              RTCErrorType::INVALID_PARAMETER,
+              "The media section with MID='" + content.mid() +
+                  "' used an invalid payload type " + rtc::ToString(codec.id) +
+                  " for codec '" + codec.name + ", rtcp-mux:" +
+                  (media_description->rtcp_mux() ? "enabled" : "disabled"));
+        }
+      }
+    } else if (type == cricket::MEDIA_TYPE_VIDEO) {
+      RTC_DCHECK(media_description->as_video());
+      for (const auto& codec : media_description->as_video()->codecs()) {
+        if (codec.id < 0 || codec.id > kLastDynamicPayloadTypeUpperRange ||
+            (media_description->rtcp_mux() &&
+             (codec.id > kLastDynamicPayloadTypeLowerRange &&
+              codec.id < kFirstDynamicPayloadTypeUpperRange))) {
+          LOG_AND_RETURN_ERROR(
+              RTCErrorType::INVALID_PARAMETER,
+              "The media section with MID='" + content.mid() +
+                  "' used an invalid payload type " + rtc::ToString(codec.id) +
+                  " for codec '" + codec.name + ", rtcp-mux:" +
+                  (media_description->rtcp_mux() ? "enabled" : "disabled"));
         }
       }
     }
@@ -3566,11 +3610,7 @@ RTCError SdpOfferAnswerHandler::ValidateSessionDescription(
 
   // Validate that there are no collisions of bundled header extensions ids.
   error = ValidateBundledRtpHeaderExtensions(*sdesc->description());
-  RTC_HISTOGRAM_BOOLEAN("WebRTC.PeerConnection.ValidBundledExtensionIds",
-                        error.ok());
-  // TODO(bugs.webrtc.org/14782): remove killswitch after rollout.
-  if (!error.ok() && !pc_->trials().IsDisabled(
-                         "WebRTC-PreventBundleHeaderExtensionIdCollision")) {
+  if (!error.ok()) {
     return error;
   }
 
@@ -3585,6 +3625,11 @@ RTCError SdpOfferAnswerHandler::ValidateSessionDescription(
                                    bundle_groups_by_mid)) {
     LOG_AND_RETURN_ERROR(RTCErrorType::INVALID_PARAMETER,
                          kBundleWithoutRtcpMux);
+  }
+
+  error = ValidatePayloadTypes(*sdesc->description());
+  if (!error.ok()) {
+    return error;
   }
 
   // TODO(skvlad): When the local rtcp-mux policy is Require, reject any

@@ -30,6 +30,7 @@ if (rtc_enable_protobuf) {
 if (is_android) {
   import("//build/config/android/config.gni")
   import("//build/config/android/rules.gni")
+  import("//third_party/jni_zero/jni_zero.gni")
 }
 
 if (!build_with_chromium && !build_with_mozilla) {
@@ -306,6 +307,10 @@ config("common_config") {
 
   if (rtc_libvpx_build_vp9) {
     defines += [ "RTC_ENABLE_VP9" ]
+  }
+
+  if (rtc_use_h265) {
+    defines += [ "RTC_ENABLE_H265" ]
   }
 
   if (rtc_include_dav1d_in_internal_decoder_factory) {

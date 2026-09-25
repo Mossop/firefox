@@ -224,7 +224,6 @@ std::vector<RtpStreamSender> CreateRtpStreamSenders(
       observers.report_block_data_observer;
   configuration.paced_sender = transport->packet_sender();
   configuration.send_bitrate_observer = observers.bitrate_observer;
-  configuration.send_side_delay_observer = observers.send_delay_observer;
   configuration.send_packet_observer = observers.send_packet_observer;
   configuration.event_log = event_log;
   configuration.retransmission_rate_limiter = retransmission_rate_limiter;
@@ -509,7 +508,6 @@ void RtpVideoSender::SetActiveModulesLocked(
     const bool was_active = rtp_module.Sending();
     const bool should_be_active = active_modules[i];
 
-    // Sends a kRtcpByeCode when going from true to false.
     rtp_module.SetSendingStatus(active_modules[i]);
 
     if (was_active && !should_be_active) {

@@ -98,7 +98,6 @@ class RtpRtcpInterface : public RtcpFeedbackSenderInterface {
     VideoFecGenerator* fec_generator = nullptr;
 
     BitrateStatisticsObserver* send_bitrate_observer = nullptr;
-    SendSideDelayObserver* send_side_delay_observer = nullptr;
     RtcEventLog* event_log = nullptr;
     SendPacketObserver* send_packet_observer = nullptr;
     RateLimiter* retransmission_rate_limiter = nullptr;
@@ -278,7 +277,7 @@ class RtpRtcpInterface : public RtcpFeedbackSenderInterface {
   // Returns the FlexFEC SSRC, if there is one.
   virtual absl::optional<uint32_t> FlexfecSsrc() const = 0;
 
-  // Sets sending status. Sends kRtcpByeCode when going from true to false.
+  // Sets sending status.
   // Returns -1 on failure else 0.
   virtual int32_t SetSendingStatus(bool sending) = 0;
 
