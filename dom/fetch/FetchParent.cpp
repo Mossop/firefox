@@ -96,6 +96,13 @@ IPCResult FetchParent::RecvFetchOp(FetchOpArgs&& aArgs) {
     return IPC_OK();
   }
 
+  if (contentHandle && InternalRequest::IsNavigationContentPolicy(
+                           aArgs.request().contentPolicyType())) {
+    return IPC_FAIL(this,
+                    "RecvFetchOp navigation content policy type not allowed "
+                    "from content");
+  }
+
   mRequest = MakeSafeRefPtr<InternalRequest>(std::move(aArgs.request()));
   mPrincipalInfo = std::move(aArgs.principalInfo());
   mWorkerScript = aArgs.workerScript();
