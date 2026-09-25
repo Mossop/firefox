@@ -58,4 +58,4 @@ Modified build files in third_party/libwebrtc - Bug 1860685 - Vendor libwebrtc f
 Merge day clobber 2026-09-10
 Modified build files in third_party/libwebrtc - Bug 1860685 - Vendor libwebrtc from f2827c4b1a
 Merge day clobber 2026-09-24
-Modified build files in third_party/libwebrtc - Bug 1871981 - Vendor libwebrtc from 60362c144c
+Modified build files in third_party/libwebrtc - Bug 1871981 - Vendor libwebrtc from fd3b346e27
