@@ -686,7 +686,6 @@ class RTC_EXPORT PeerConnectionInterface : public webrtc::RefCountInterface {
     PortAllocatorConfig port_allocator_config;
 
     // The burst interval of the pacer, see TaskQueuePacedSender constructor.
-    // TODO(hbos): Deprecated, Remove once Chromium is not setting it.
     absl::optional<TimeDelta> pacer_burst_interval;
 
     //
@@ -1443,10 +1442,10 @@ struct RTC_EXPORT PeerConnectionFactoryDependencies final {
       transport_controller_send_factory;
   // Metronome used for decoding, must be called on the worker thread.
   std::unique_ptr<Metronome> decode_metronome;
-  // Old name for `decode_metronome`.
-  // TODO(https://crbug.com/webrtc/15704): When callers have migrated to
-  // `decode_metronome`, delete this.
-  std::unique_ptr<Metronome> metronome;
+  // Metronome used for encoding, must be called on the worker thread.
+  // TODO(b/304158952): Consider merging into a single metronome for all codec
+  // usage.
+  std::unique_ptr<Metronome> encode_metronome;
 
   // Media specific dependencies. Unused when `media_factory == nullptr`.
   rtc::scoped_refptr<AudioDeviceModule> adm;
