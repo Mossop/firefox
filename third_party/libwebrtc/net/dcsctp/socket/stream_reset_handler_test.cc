@@ -48,6 +48,7 @@ using ::testing::Property;
 using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
+using ::webrtc::TimeDelta;
 using ResponseResult = ReconfigurationResponseParameter::Result;
 using SkippedStream = AnyForwardTsnChunk::SkippedStream;
 
@@ -97,11 +98,11 @@ class StreamResetHandlerTest : public testing::Test {
         }),
         delayed_ack_timer_(timer_manager_.CreateTimer(
             "test/delayed_ack",
-            []() { return absl::nullopt; },
+            []() { return DurationMs(0); },
             TimerOptions(DurationMs(0)))),
         t3_rtx_timer_(timer_manager_.CreateTimer(
             "test/t3_rtx",
-            []() { return absl::nullopt; },
+            []() { return DurationMs(0); },
             TimerOptions(DurationMs(0)))),
         data_tracker_(std::make_unique<DataTracker>("log: ",
                                                     delayed_ack_timer_.get(),
@@ -115,7 +116,7 @@ class StreamResetHandlerTest : public testing::Test {
             kMyInitialTsn,
             kArwnd,
             producer_,
-            [](DurationMs rtt_ms) {},
+            [](TimeDelta rtt) {},
             []() {},
             *t3_rtx_timer_,
             DcSctpOptions())),
@@ -205,7 +206,7 @@ class StreamResetHandlerTest : public testing::Test {
     reasm_->RestoreFromState(state);
     retransmission_queue_ = std::make_unique<RetransmissionQueue>(
         "", &callbacks_, kMyInitialTsn, kArwnd, producer_,
-        [](DurationMs rtt_ms) {}, []() {}, *t3_rtx_timer_, DcSctpOptions(),
+        [](TimeDelta rtt) {}, []() {}, *t3_rtx_timer_, DcSctpOptions(),
         /*supports_partial_reliability=*/true,
         /*use_message_interleaving=*/false);
     retransmission_queue_->RestoreFromState(state);

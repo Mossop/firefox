@@ -52,6 +52,7 @@ using ::testing::Pair;
 using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
+using ::webrtc::TimeDelta;
 
 constexpr uint32_t kArwnd = 100000;
 constexpr uint32_t kMaxMtu = 1191;
@@ -74,7 +75,7 @@ class RetransmissionQueueTest : public testing::Test {
         }),
         timer_(timer_manager_.CreateTimer(
             "test/t3_rtx",
-            []() { return absl::nullopt; },
+            []() { return DurationMs(0); },
             TimerOptions(options_.rto_initial))) {}
 
   std::function<SendQueue::DataToSend(TimeMs, size_t)> CreateChunk(
@@ -130,7 +131,7 @@ class RetransmissionQueueTest : public testing::Test {
   TimeMs now_ = TimeMs(0);
   FakeTimeoutManager timeout_manager_;
   TimerManager timer_manager_;
-  NiceMock<MockFunction<void(DurationMs rtt_ms)>> on_rtt_;
+  NiceMock<MockFunction<void(TimeDelta rtt_ms)>> on_rtt_;
   NiceMock<MockFunction<void()>> on_clear_retransmission_counter_;
   NiceMock<MockSendQueue> producer_;
   std::unique_ptr<Timer> timer_;
@@ -864,7 +865,7 @@ TEST_F(RetransmissionQueueTest, MeasureRTT) {
 
   now_ = now_ + DurationMs(123);
 
-  EXPECT_CALL(on_rtt_, Call(DurationMs(123))).Times(1);
+  EXPECT_CALL(on_rtt_, Call(TimeDelta::Millis(123))).Times(1);
   queue.HandleSack(now_, SackChunk(TSN(10), kArwnd, {}, {}));
 }
 

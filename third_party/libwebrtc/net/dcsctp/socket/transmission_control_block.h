@@ -67,7 +67,7 @@ class TransmissionControlBlock : public Context {
   TSN my_initial_tsn() const override { return my_initial_tsn_; }
   TSN peer_initial_tsn() const override { return peer_initial_tsn_; }
   DcSctpSocketCallbacks& callbacks() const override { return callbacks_; }
-  void ObserveRTT(DurationMs rtt) override;
+  void ObserveRTT(webrtc::TimeDelta rtt) override;
   DurationMs current_rto() const override { return rto_.rto(); }
   bool IncrementTxErrorCounter(absl::string_view reason) override {
     return tx_error_counter_.Increment(reason);
@@ -149,9 +149,9 @@ class TransmissionControlBlock : public Context {
 
  private:
   // Will be called when the retransmission timer (t3-rtx) expires.
-  absl::optional<DurationMs> OnRtxTimerExpiry();
+  DurationMs OnRtxTimerExpiry();
   // Will be called when the delayed ack timer expires.
-  absl::optional<DurationMs> OnDelayedAckTimerExpiry();
+  DurationMs OnDelayedAckTimerExpiry();
 
   const absl::string_view log_prefix_;
   const DcSctpOptions options_;

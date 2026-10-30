@@ -62,6 +62,9 @@ class LossBasedBweV2 {
   // Returns true if loss based BWE is ready to be used in the start phase.
   bool ReadyToUseInStartPhase() const;
 
+  // Returns true if loss based BWE can be used in the start phase.
+  bool UseInStartPhase() const;
+
   // Returns `DataRate::PlusInfinity` if no BWE can be calculated.
   Result GetLossBasedResult() const;
 
@@ -152,6 +155,12 @@ class LossBasedBweV2 {
     Timestamp padding_timestamp = Timestamp::MinusInfinity();
   };
 
+  struct HoldInfo {
+    Timestamp timestamp = Timestamp::MinusInfinity();
+    TimeDelta duration = TimeDelta::Zero();
+    DataRate rate = DataRate::PlusInfinity();
+  };
+
   static absl::optional<Config> CreateConfig(
       const FieldTrialsView* key_value_config);
   bool IsConfigValid() const;
@@ -204,8 +213,7 @@ class LossBasedBweV2 {
   DataRate max_bitrate_ = DataRate::PlusInfinity();
   DataRate delay_based_estimate_ = DataRate::PlusInfinity();
   LossBasedBweV2::Result loss_based_result_ = LossBasedBweV2::Result();
-  Timestamp last_hold_timestamp_ = Timestamp::MinusInfinity();
-  TimeDelta hold_duration_ = TimeDelta::Zero();
+  HoldInfo last_hold_info_ = HoldInfo();
   PaddingInfo last_padding_info_ = PaddingInfo();
 };
 

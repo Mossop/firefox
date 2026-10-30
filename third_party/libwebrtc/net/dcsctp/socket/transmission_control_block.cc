@@ -37,6 +37,7 @@
 #include "rtc_base/strings/string_builder.h"
 
 namespace dcsctp {
+using ::webrtc::TimeDelta;
 
 TransmissionControlBlock::TransmissionControlBlock(
     TimerManager& timer_manager,
@@ -112,10 +113,10 @@ TransmissionControlBlock::TransmissionControlBlock(
   send_queue.EnableMessageInterleaving(capabilities.message_interleaving);
 }
 
-void TransmissionControlBlock::ObserveRTT(DurationMs rtt) {
+void TransmissionControlBlock::ObserveRTT(TimeDelta rtt) {
   DurationMs prev_rto = rto_.rto();
-  rto_.ObserveRTT(rtt);
-  RTC_DLOG(LS_VERBOSE) << log_prefix_ << "new rtt=" << *rtt
+  rto_.ObserveRTT(DurationMs(rtt));
+  RTC_DLOG(LS_VERBOSE) << log_prefix_ << "new rtt=" << webrtc::ToString(rtt)
                        << ", srtt=" << *rto_.srtt() << ", rto=" << *rto_.rto()
                        << " (" << *prev_rto << ")";
   t3_rtx_->set_duration(rto_.rto());
@@ -125,7 +126,7 @@ void TransmissionControlBlock::ObserveRTT(DurationMs rtt) {
   delayed_ack_timer_->set_duration(delayed_ack_tmo);
 }
 
-absl::optional<DurationMs> TransmissionControlBlock::OnRtxTimerExpiry() {
+DurationMs TransmissionControlBlock::OnRtxTimerExpiry() {
   TimeMs now = callbacks_.TimeMillis();
   RTC_DLOG(LS_INFO) << log_prefix_ << "Timer " << t3_rtx_->name()
                     << " has expired";
@@ -139,13 +140,13 @@ absl::optional<DurationMs> TransmissionControlBlock::OnRtxTimerExpiry() {
       SendBufferedPackets(now);
     }
   }
-  return absl::nullopt;
+  return DurationMs(0);
 }
 
-absl::optional<DurationMs> TransmissionControlBlock::OnDelayedAckTimerExpiry() {
+DurationMs TransmissionControlBlock::OnDelayedAckTimerExpiry() {
   data_tracker_.HandleDelayedAckTimerExpiry();
   MaybeSendSack();
-  return absl::nullopt;
+  return DurationMs(0);
 }
 
 void TransmissionControlBlock::MaybeSendSack() {

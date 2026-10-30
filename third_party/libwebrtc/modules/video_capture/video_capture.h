@@ -38,7 +38,7 @@ protected:
   int32_t SetCaptureAndroidVM(JavaVM* javaVM);
 #endif
 
-class VideoCaptureModule : public rtc::RefCountInterface {
+class VideoCaptureModule : public RefCountInterface {
  public:
   // Interface for receiving information about available camera devices.
   class DeviceInfo {

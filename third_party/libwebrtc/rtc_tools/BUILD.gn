@@ -54,6 +54,7 @@ rtc_library("video_file_reader") {
   ]
   deps = [
     "../api:make_ref_counted",
+    "../api:ref_count",
     "../api:scoped_refptr",
     "../api/video:video_frame",
     "../api/video:video_rtp_headers",
@@ -420,7 +421,6 @@ if (!build_with_chromium) {
         "../modules/rtp_rtcp",
         "../modules/rtp_rtcp:rtp_rtcp_format",
         "../rtc_base:checks",
-        "../rtc_base:ignore_wundef",
         "../rtc_base:logging",
         "../rtc_base:macromagic",
         "../rtc_base:rate_statistics",
@@ -659,7 +659,6 @@ if (rtc_include_tests) {
           "../modules/audio_processing:audioproc_debug_proto",
           "../modules/audio_processing:audioproc_protobuf_utils",
           "../rtc_base:checks",
-          "../rtc_base:ignore_wundef",
           "../rtc_base:macromagic",
           "../rtc_base:protobuf_utils",
           "../rtc_base:stringutils",

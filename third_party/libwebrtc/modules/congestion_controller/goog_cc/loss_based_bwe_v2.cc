@@ -132,7 +132,7 @@ LossBasedBweV2::LossBasedBweV2(const FieldTrialsView* key_value_config)
   instant_upper_bound_temporal_weights_.resize(
       config_->observation_window_size);
   CalculateTemporalWeights();
-  hold_duration_ = kInitHoldDuration;
+  last_hold_info_.duration = kInitHoldDuration;
 }
 
 bool LossBasedBweV2::IsEnabled() const {
@@ -147,6 +147,10 @@ bool LossBasedBweV2::IsReady() const {
 
 bool LossBasedBweV2::ReadyToUseInStartPhase() const {
   return IsReady() && config_->use_in_start_phase;
+}
+
+bool LossBasedBweV2::UseInStartPhase() const {
+  return config_->use_in_start_phase;
 }
 
 LossBasedBweV2::Result LossBasedBweV2::GetLossBasedResult() const {
@@ -294,6 +298,15 @@ void LossBasedBweV2::UpdateBandwidthEstimate(
                    std::min(best_candidate.loss_limited_bandwidth,
                             config_->bandwidth_rampup_upper_bound_factor *
                                 (*acknowledged_bitrate_)));
+      // Increase current estimate by at least 1kbps to make sure that the state
+      // will be switched to kIncreasing, thus padding is triggered.
+      if (loss_based_result_.state == LossBasedState::kDecreasing &&
+          best_candidate.loss_limited_bandwidth ==
+              current_best_estimate_.loss_limited_bandwidth) {
+        best_candidate.loss_limited_bandwidth =
+            current_best_estimate_.loss_limited_bandwidth +
+            DataRate::BitsPerSec(1);
+      }
     }
   }
 
@@ -327,12 +340,12 @@ void LossBasedBweV2::UpdateResult() {
   }
 
   if (loss_based_result_.state == LossBasedState::kDecreasing &&
-      last_hold_timestamp_ > last_send_time_most_recent_observation_ &&
+      last_hold_info_.timestamp > last_send_time_most_recent_observation_ &&
       bounded_bandwidth_estimate < delay_based_estimate_) {
-    // BWE is not allowed to increase during the HOLD duration. The purpose of
+    // BWE is not allowed to increase above the HOLD rate. The purpose of
     // HOLD is to not immediately ramp up BWE to a rate that may cause loss.
-    loss_based_result_.bandwidth_estimate = std::min(
-        loss_based_result_.bandwidth_estimate, bounded_bandwidth_estimate);
+    loss_based_result_.bandwidth_estimate =
+        std::min(last_hold_info_.rate, bounded_bandwidth_estimate);
     return;
   }
 
@@ -359,18 +372,23 @@ void LossBasedBweV2::UpdateResult() {
       RTC_LOG(LS_INFO) << this << " "
                        << "Switch to HOLD. Bounded BWE: "
                        << bounded_bandwidth_estimate.kbps()
-                       << ", duration: " << hold_duration_.seconds();
-      last_hold_timestamp_ =
-          last_send_time_most_recent_observation_ + hold_duration_;
-      hold_duration_ = std::min(kMaxHoldDuration,
-                                hold_duration_ * config_->hold_duration_factor);
+                       << ", duration: " << last_hold_info_.duration.ms();
+      last_hold_info_ = {
+          .timestamp = last_send_time_most_recent_observation_ +
+                       last_hold_info_.duration,
+          .duration =
+              std::min(kMaxHoldDuration, last_hold_info_.duration *
+                                             config_->hold_duration_factor),
+          .rate = bounded_bandwidth_estimate};
     }
     last_padding_info_ = PaddingInfo();
     loss_based_result_.state = LossBasedState::kDecreasing;
   } else {
-    // Reset the HOLD duration if delay based estimate works to avoid getting
+    // Reset the HOLD info if delay based estimate works to avoid getting
     // stuck in low bitrate.
-    hold_duration_ = kInitHoldDuration;
+    last_hold_info_ = {.timestamp = Timestamp::MinusInfinity(),
+                       .duration = kInitHoldDuration,
+                       .rate = DataRate::PlusInfinity()};
     last_padding_info_ = PaddingInfo();
     loss_based_result_.state = LossBasedState::kDelayBasedEstimate;
   }
@@ -842,7 +860,10 @@ std::vector<LossBasedBweV2::ChannelParameters> LossBasedBweV2::GetCandidates(
 
   if (acknowledged_bitrate_.has_value() &&
       config_->append_acknowledged_rate_candidate) {
-    if (!(config_->not_use_acked_rate_in_alr && in_alr)) {
+    if (!(config_->not_use_acked_rate_in_alr && in_alr) ||
+        (config_->padding_duration > TimeDelta::Zero() &&
+         last_padding_info_.padding_timestamp + config_->padding_duration >=
+             last_send_time_most_recent_observation_)) {
       bandwidths.push_back(*acknowledged_bitrate_ *
                            config_->bandwidth_backoff_lower_bound_factor);
     }
