@@ -29,3 +29,4 @@ Modified build files in third_party/libwebrtc - Bug 1876843 - Vendor libwebrtc f
 Modified build files in third_party/libwebrtc - Remove android_support dependency from libwebrtc.
 Merge day clobber 2026-10-23
 Modified build files in third_party/libwebrtc - Bug 1876843 - Vendor libwebrtc from 24510d43dc
+Modified build files in third_party/libwebrtc - Bug 1855330 - pt4 - BUILD.gn fixes for updated libwebrtc/third_party. r?ng!
