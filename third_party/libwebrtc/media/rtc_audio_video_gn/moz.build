@@ -36,6 +36,9 @@ UNIFIED_SOURCES += [
     "/third_party/libwebrtc/media/engine/payload_type_mapper.cc",
     "/third_party/libwebrtc/media/engine/webrtc_media_engine.cc",
     "/third_party/libwebrtc/media/engine/webrtc_video_engine.cc",
+]
+
+SOURCES += [
     "/third_party/libwebrtc/media/engine/webrtc_voice_engine.cc"
 ]
 
