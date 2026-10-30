@@ -79,8 +79,6 @@ class RtcEventLog;
 
 namespace cricket {
 
-static const int MIN_PINGS_AT_WEAK_PING_INTERVAL = 3;
-
 bool IceCredentialsChanged(absl::string_view old_ufrag,
                            absl::string_view old_pwd,
                            absl::string_view new_ufrag,
@@ -372,7 +370,7 @@ class RTC_EXPORT P2PTransportChannel : public IceTransportInternal,
   }
 
   // Indicates if the given local port has been pruned.
-  bool IsPortPruned(const Port* port) const;
+  bool IsPortPruned(const PortInterface* port) const;
 
   // Indicates if the given remote candidate has been pruned.
   bool IsRemoteCandidatePruned(const Candidate& cand) const;

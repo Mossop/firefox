@@ -361,6 +361,7 @@ if (!build_with_mozilla) {
     ":sequence_checker",
     ":turn_customizer",
     "../call:rtp_interfaces",
+    "../p2p:connection",
     "../p2p:rtc_p2p",
     "../pc:media_factory",
     "../rtc_base:copy_on_write_buffer",
@@ -806,7 +807,6 @@ rtc_source_set("rtc_stats_api") {
     "stats/attribute.h",
     "stats/rtc_stats.h",
     "stats/rtc_stats_collector_callback.h",
-    "stats/rtc_stats_member.h",
     "stats/rtc_stats_report.h",
     "stats/rtcstats_objects.h",
   ]
@@ -969,6 +969,10 @@ rtc_library("ice_transport_factory") {
     ":make_ref_counted",
     ":packet_socket_factory",
     ":scoped_refptr",
+    "../p2p:connection",
+    "../p2p:ice_transport_internal",
+    "../p2p:p2p_constants",
+    "../p2p:p2p_transport_channel",
     "../p2p:rtc_p2p",
     "../rtc_base:threading",
     "../rtc_base/system:rtc_export",
@@ -1379,6 +1383,7 @@ if (rtc_include_tests) {
     deps = [
       "../api/video_codecs:video_codecs_api",
       "../test:test_support",
+      "environment",
     ]
   }
 
