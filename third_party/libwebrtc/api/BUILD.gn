@@ -47,6 +47,7 @@ rtc_source_set("enable_media") {
     "../media:rtc_audio_video",
     "../pc:media_factory",
     "../rtc_base/system:rtc_export",
+    "environment",
   ]
   if (build_with_mozilla) {
     deps -= [ "../pc:media_factory" ]
@@ -57,7 +58,7 @@ rtc_source_set("enable_media_with_defaults") {
   visibility = [ "*" ]
   allow_poison = [
     "audio_codecs",
-    "default_task_queue",
+    "environment_construction",
     "software_video_codecs",
   ]
   sources = [
@@ -80,18 +81,16 @@ rtc_source_set("enable_media_with_defaults") {
 if (!build_with_chromium && !build_with_mozilla) {
   rtc_library("create_peerconnection_factory") {
     visibility = [ "*" ]
-    allow_poison = [ "default_task_queue" ]
+    allow_poison = [ "environment_construction" ]
     sources = [
       "create_peerconnection_factory.cc",
       "create_peerconnection_factory.h",
     ]
     deps = [
-      ":callfactory_api",
+      ":enable_media",
       ":libjingle_peerconnection_api",
       ":scoped_refptr",
       "../api/rtc_event_log:rtc_event_log_factory",
-      "../media:rtc_audio_video",
-      "../media:rtc_media_base",
       "../modules/audio_device:audio_device_api",
       "../modules/audio_processing:api",
       "../pc:peer_connection_factory",
@@ -347,7 +346,6 @@ if (!build_with_mozilla) {
     ":array_view",
     ":async_dns_resolver",
     ":audio_options_api",
-    ":callfactory_api",
     ":candidate",
     ":dtls_transport_interface",
     ":fec_controller_api",
@@ -459,15 +457,10 @@ rtc_library("rtc_error") {
 
 rtc_source_set("packet_socket_factory") {
   visibility = [ "*" ]
-  sources = [
-    "async_resolver_factory.h",
-    "packet_socket_factory.h",
-  ]
+  sources = [ "packet_socket_factory.h" ]
   deps = [
     ":async_dns_resolver",
-    ":wrapping_async_dns_resolver",
     "../rtc_base:async_packet_socket",
-    "../rtc_base:async_resolver_interface",
     "../rtc_base:proxy_info",
     "../rtc_base:socket_address",
     "../rtc_base/system:rtc_export",
@@ -483,28 +476,6 @@ rtc_source_set("async_dns_resolver") {
     "../rtc_base/system:rtc_export",
   ]
   absl_deps = [ "//third_party/abseil-cpp/absl/functional:any_invocable" ]
-}
-
-rtc_source_set("wrapping_async_dns_resolver") {
-  visibility = [
-    ":*",
-    "../p2p:rtc_p2p",
-  ]
-  sources = [
-    "wrapping_async_dns_resolver.cc",
-    "wrapping_async_dns_resolver.h",
-  ]
-  deps = [
-    ":async_dns_resolver",
-    ":sequence_checker",
-    "../rtc_base:async_resolver_interface",
-    "../rtc_base:checks",
-    "../rtc_base:macromagic",
-    "../rtc_base:socket_address",
-    "../rtc_base:threading",
-    "../rtc_base/third_party/sigslot",
-  ]
-  absl_deps = [ "//third_party/abseil-cpp/absl/memory" ]
 }
 
 rtc_source_set("ref_count") {
@@ -1107,24 +1078,6 @@ if (rtc_include_tests) {
     absl_deps = [ "//third_party/abseil-cpp/absl/types:optional" ]
   }
 
-  rtc_library("video_codec_stats_api") {
-    visibility = [ "*" ]
-    testonly = true
-    sources = [
-      "test/video_codec_stats.cc",
-      "test/video_codec_stats.h",
-    ]
-    deps = [
-      "../api/numerics:numerics",
-      "../api/units:data_rate",
-      "../api/units:data_size",
-      "../api/units:frequency",
-      "test/metrics:metric",
-      "test/metrics:metrics_logger",
-    ]
-    absl_deps = [ "//third_party/abseil-cpp/absl/types:optional" ]
-  }
-
   rtc_library("videocodec_test_fixture_api") {
     visibility = [ "*" ]
     testonly = true
@@ -1133,23 +1086,6 @@ if (rtc_include_tests) {
       ":videocodec_test_stats_api",
       "../modules/video_coding:video_codec_interface",
       "video_codecs:video_codecs_api",
-    ]
-  }
-
-  rtc_library("video_codec_tester_api") {
-    visibility = [ "*" ]
-    testonly = true
-    sources = [ "test/video_codec_tester.h" ]
-    deps = [
-      ":video_codec_stats_api",
-      "../modules/video_coding/svc:scalability_mode_util",
-      "video:encoded_image",
-      "video:resolution",
-      "video:video_frame",
-    ]
-    absl_deps = [
-      "//third_party/abseil-cpp/absl/functional:any_invocable",
-      "//third_party/abseil-cpp/absl/types:optional",
     ]
   }
 
@@ -1165,19 +1101,6 @@ if (rtc_include_tests) {
       "../modules/video_coding:video_codecs_test_framework",
       "../modules/video_coding:videocodec_test_impl",
       "video_codecs:video_codecs_api",
-    ]
-  }
-
-  rtc_library("create_video_codec_tester_api") {
-    visibility = [ "*" ]
-    testonly = true
-    sources = [
-      "test/create_video_codec_tester.cc",
-      "test/create_video_codec_tester.h",
-    ]
-    deps = [
-      ":video_codec_tester_api",
-      "../modules/video_coding:video_codec_tester",
     ]
   }
 
@@ -1364,6 +1287,18 @@ if (rtc_include_tests) {
     ]
   }
 
+  rtc_source_set("mock_transformable_frame") {
+    visibility = [ "*" ]
+    testonly = true
+    sources = [ "test/mock_transformable_frame.h" ]
+    deps = [
+      ":array_view",
+      ":frame_transformer_interface",
+      "../test:test_support",
+      "units:timestamp",
+    ]
+  }
+
   rtc_source_set("mock_async_dns_resolver") {
     visibility = [ "*" ]
     testonly = true
@@ -1494,13 +1429,19 @@ if (rtc_include_tests) {
     ]
 
     deps = [
-      ":callfactory_api",
+      ":enable_media_with_defaults",
+      ":libjingle_peerconnection_api",
       ":time_controller",
       "../call",
       "../call:call_interfaces",
       "../call:rtp_interfaces",
+      "../pc:media_factory",
+      "../rtc_base:checks",
+      "../system_wrappers",
       "../test/time_controller",
+      "environment",
     ]
+    absl_deps = [ "//third_party/abseil-cpp/absl/base:nullability" ]
   }
 
   rtc_library("rtc_api_unittests") {
@@ -1550,6 +1491,7 @@ if (rtc_include_tests) {
       "../test:fileutils",
       "../test:rtc_expect_death",
       "../test:test_support",
+      "environment:environment_unittests",
       "task_queue:task_queue_default_factory_unittests",
       "test/pclf:media_configuration",
       "test/video:video_frame_writer",
@@ -1589,6 +1531,7 @@ if (rtc_include_tests) {
       ":mock_rtp",
       ":mock_session_description_interface",
       ":mock_transformable_audio_frame",
+      ":mock_transformable_frame",
       ":mock_transformable_video_frame",
       ":mock_video_bitrate_allocator",
       ":mock_video_bitrate_allocator_factory",

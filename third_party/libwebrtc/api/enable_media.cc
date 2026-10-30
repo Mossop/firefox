@@ -13,6 +13,7 @@
 #include <memory>
 #include <utility>
 
+#include "api/environment/environment.h"
 #include "api/peer_connection_interface.h"
 #include "call/call_factory.h"
 #include "media/engine/webrtc_media_engine.h"
@@ -41,27 +42,18 @@ class MediaFactoryImpl : public MediaFactory {
   }
 
   std::unique_ptr<MediaEngineInterface> CreateMediaEngine(
+      const Environment& env,
       PeerConnectionFactoryDependencies& deps) override {
-    std::unique_ptr<FieldTrialsView> fallback_trials;
-    const FieldTrialsView* trials;
-    if (deps.trials) {
-      trials = deps.trials.get();
-    } else {
-      fallback_trials = std::make_unique<FieldTrialBasedConfig>();
-      trials = fallback_trials.get();
-    }
     auto audio_engine = std::make_unique<WebRtcVoiceEngine>(
-        deps.task_queue_factory.get(), deps.adm.get(),
+        &env.task_queue_factory(), deps.adm.get(),
         std::move(deps.audio_encoder_factory),
         std::move(deps.audio_decoder_factory), std::move(deps.audio_mixer),
-        std::move(deps.audio_processing), /*audio_frame_processor=*/nullptr,
-        /*owned_audio_frame_processor=*/std::move(deps.audio_frame_processor),
-        *trials);
+        std::move(deps.audio_processing), std::move(deps.audio_frame_processor),
+        env.field_trials());
     auto video_engine = std::make_unique<WebRtcVideoEngine>(
         std::move(deps.video_encoder_factory),
-        std::move(deps.video_decoder_factory), *trials);
-    return std::make_unique<CompositeMediaEngine>(std::move(fallback_trials),
-                                                  std::move(audio_engine),
+        std::move(deps.video_decoder_factory), env.field_trials());
+    return std::make_unique<CompositeMediaEngine>(std::move(audio_engine),
                                                   std::move(video_engine));
   }
 };
@@ -69,6 +61,11 @@ class MediaFactoryImpl : public MediaFactory {
 }  // namespace
 
 void EnableMedia(PeerConnectionFactoryDependencies& deps) {
+  if (deps.media_factory != nullptr) {
+    // Do nothing if media is already enabled. Overwriting media_factory can be
+    // harmful when a different (e.g. test-only) implementation is used.
+    return;
+  }
   deps.media_factory = std::make_unique<MediaFactoryImpl>();
 }
 
