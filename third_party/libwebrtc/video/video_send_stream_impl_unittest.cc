@@ -70,11 +70,13 @@ namespace internal {
 namespace {
 using ::testing::_;
 using ::testing::AllOf;
+using ::testing::AnyNumber;
 using ::testing::Field;
 using ::testing::Invoke;
 using ::testing::Mock;
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::SaveArg;
 
 constexpr int64_t kDefaultInitialBitrateBps = 333000;
 const double kDefaultBitratePriority = 0.5;
@@ -87,8 +89,7 @@ std::string GetAlrProbingExperimentString() {
 }
 class MockRtpVideoSender : public RtpVideoSenderInterface {
  public:
-  MOCK_METHOD(void, SetActiveModules, (const std::vector<bool>&), (override));
-  MOCK_METHOD(void, Stop, (), (override));
+  MOCK_METHOD(void, SetSending, (bool sending), (override));
   MOCK_METHOD(bool, IsActive, (), (override));
   MOCK_METHOD(void, OnNetworkAvailability, (bool), (override));
   MOCK_METHOD((std::map<uint32_t, RtpState>),
@@ -158,19 +159,11 @@ class VideoSendStreamImplTest : public ::testing::Test {
         .WillRepeatedly(Return(&packet_router_));
     EXPECT_CALL(transport_controller_, CreateRtpVideoSender)
         .WillRepeatedly(Return(&rtp_video_sender_));
-    ON_CALL(rtp_video_sender_, Stop()).WillByDefault(::testing::Invoke([&] {
-      active_modules_.clear();
+    ON_CALL(rtp_video_sender_, IsActive()).WillByDefault(Invoke([&]() {
+      return rtp_sending_;
     }));
-    ON_CALL(rtp_video_sender_, IsActive())
-        .WillByDefault(::testing::Invoke([&]() {
-          for (bool enabled : active_modules_) {
-            if (enabled)
-              return true;
-          }
-          return false;
-        }));
-    ON_CALL(rtp_video_sender_, SetActiveModules)
-        .WillByDefault(::testing::SaveArg<0>(&active_modules_));
+    ON_CALL(rtp_video_sender_, SetSending)
+        .WillByDefault(SaveArg<0>(&rtp_sending_));
   }
   ~VideoSendStreamImplTest() {}
 
@@ -225,7 +218,7 @@ class VideoSendStreamImplTest : public ::testing::Test {
   NiceMock<MockBitrateAllocator> bitrate_allocator_;
   NiceMock<MockVideoStreamEncoder>* video_stream_encoder_ = nullptr;
   NiceMock<MockRtpVideoSender> rtp_video_sender_;
-  std::vector<bool> active_modules_;
+  bool rtp_sending_ = false;
 
   RtcEventLogNull event_log_;
   VideoSendStream::Config config_;
@@ -275,6 +268,56 @@ TEST_F(VideoSendStreamImplTest,
 
   time_controller_.AdvanceTime(TimeDelta::Zero());
   ::testing::Mock::VerifyAndClearExpectations(&bitrate_allocator_);
+
+  vss_impl->Stop();
+}
+
+TEST_F(VideoSendStreamImplTest,
+       DoNotRegistersAsBitrateObserverOnStrayEncodedImage) {
+  auto vss_impl = CreateVideoSendStreamImpl(TestVideoEncoderConfig());
+
+  EncodedImage encoded_image;
+  CodecSpecificInfo codec_specific;
+  ON_CALL(rtp_video_sender_, OnEncodedImage)
+      .WillByDefault(Return(
+          EncodedImageCallback::Result(EncodedImageCallback::Result::OK)));
+
+  EXPECT_CALL(bitrate_allocator_, AddObserver(vss_impl.get(), _))
+      .Times(AnyNumber());
+  vss_impl->Start();
+  time_controller_.AdvanceTime(TimeDelta::Zero());
+
+  // VideoSendStreamImpl gets an allocated bitrate.
+  const uint32_t kBitrateBps = 100000;
+  EXPECT_CALL(rtp_video_sender_, GetPayloadBitrateBps())
+      .Times(1)
+      .WillOnce(Return(kBitrateBps));
+  static_cast<BitrateAllocatorObserver*>(vss_impl.get())
+      ->OnBitrateUpdated(CreateAllocation(kBitrateBps));
+  // A frame is encoded.
+  encoder_queue_->PostTask([&] {
+    static_cast<EncodedImageCallback*>(vss_impl.get())
+        ->OnEncodedImage(encoded_image, &codec_specific);
+  });
+
+  // Expect allocation to be removed if encoder stop producing frames.
+  EXPECT_CALL(bitrate_allocator_, RemoveObserver(vss_impl.get())).Times(1);
+  time_controller_.AdvanceTime(TimeDelta::Seconds(5));
+  Mock::VerifyAndClearExpectations(&bitrate_allocator_);
+
+  EXPECT_CALL(bitrate_allocator_, AddObserver(vss_impl.get(), _)).Times(0);
+
+  VideoEncoderConfig no_active_encodings = TestVideoEncoderConfig();
+  no_active_encodings.simulcast_layers[0].active = false;
+  vss_impl->ReconfigureVideoEncoder(std::move(no_active_encodings));
+
+  // Expect that allocation in not resumed if a stray encoded image is received.
+  encoder_queue_->PostTask([&] {
+    static_cast<EncodedImageCallback*>(vss_impl.get())
+        ->OnEncodedImage(encoded_image, &codec_specific);
+  });
+
+  time_controller_.AdvanceTime(TimeDelta::Zero());
 
   vss_impl->Stop();
 }

@@ -522,6 +522,7 @@ VideoSendStreamImpl::~VideoSendStreamImpl() {
   RTC_DCHECK_RUN_ON(&thread_checker_);
   RTC_LOG(LS_INFO) << "~VideoSendStreamImpl: " << config_.ToString();
   RTC_DCHECK(!started());
+  RTC_DCHECK(!IsRunning());
   transport_->DestroyRtpVideoSender(rtp_video_sender_);
 }
 
@@ -627,10 +628,9 @@ bool VideoSendStreamImpl::started() {
 
 void VideoSendStreamImpl::Start() {
   RTC_DCHECK_RUN_ON(&thread_checker_);
-  const std::vector<bool> active_layers(config_.rtp.ssrcs.size(), true);
   // This sender is allowed to send RTP packets. Start monitoring and allocating
   // a rate if there is also active encodings. (has_active_encodings_).
-  rtp_video_sender_->SetActiveModules(active_layers);
+  rtp_video_sender_->SetSending(true);
   if (!IsRunning() && has_active_encodings_) {
     StartupVideoSendStream();
   }
@@ -681,7 +681,7 @@ void VideoSendStreamImpl::Stop() {
     return;
 
   TRACE_EVENT_INSTANT0("webrtc", "VideoSendStream::Stop");
-  rtp_video_sender_->Stop();
+  rtp_video_sender_->SetSending(false);
   if (IsRunning()) {
     StopVideoSendStream();
   }
@@ -765,7 +765,7 @@ void VideoSendStreamImpl::OnVideoLayersAllocationUpdated(
 
 void VideoSendStreamImpl::SignalEncoderActive() {
   RTC_DCHECK_RUN_ON(&thread_checker_);
-  if (rtp_video_sender_->IsActive()) {
+  if (IsRunning()) {
     RTC_LOG(LS_INFO) << "SignalEncoderActive, Encoder is active.";
     bitrate_allocator_->AddObserver(this, GetAllocationConfig());
   }

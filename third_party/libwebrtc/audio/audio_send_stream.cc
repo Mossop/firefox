@@ -157,6 +157,8 @@ AudioSendStream::AudioSendStream(
       event_log_(event_log),
       use_legacy_overhead_calculation_(
           field_trials_.IsEnabled("WebRTC-Audio-LegacyOverhead")),
+      enable_priority_bitrate_(
+          !field_trials_.IsDisabled("WebRTC-Audio-PriorityBitrate")),
       bitrate_allocator_(bitrate_allocator),
       rtp_transport_(rtp_transport),
       rtp_rtcp_module_(channel_send_->GetRtpRtcp()),
@@ -331,6 +333,7 @@ void AudioSendStream::ConfigureStream(
       return;
     }
     frame_length_range_ = encoder->GetFrameLengthRange();
+    bitrate_range_ = encoder->GetBitrateRange();
   });
 
   if (sending_) {
@@ -808,6 +811,10 @@ void AudioSendStream::ConfigureBitrateObserver() {
     priority_bitrate = *allocation_settings_.priority_bitrate_raw;
   }
 
+  if (!enable_priority_bitrate_) {
+    priority_bitrate = DataRate::BitsPerSec(0);
+  }
+
   bitrate_allocator_->AddObserver(
       this,
       MediaStreamAllocationConfig{
@@ -842,6 +849,12 @@ AudioSendStream::GetMinMaxBitrateConstraints() const {
     constraints.min = *allocation_settings_.min_bitrate;
   if (allocation_settings_.max_bitrate)
     constraints.max = *allocation_settings_.max_bitrate;
+
+  // Use encoder defined bitrate range if available.
+  if (bitrate_range_) {
+    constraints.min = bitrate_range_->first;
+    constraints.max = bitrate_range_->second;
+  }
 
   RTC_DCHECK_GE(constraints.min, DataRate::Zero());
   RTC_DCHECK_GE(constraints.max, DataRate::Zero());

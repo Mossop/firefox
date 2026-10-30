@@ -173,6 +173,7 @@ class AudioSendStream final : public webrtc::AudioSendStream,
   const std::unique_ptr<voe::ChannelSendInterface> channel_send_;
   RtcEventLog* const event_log_;
   const bool use_legacy_overhead_calculation_;
+  const bool enable_priority_bitrate_;
 
   int encoder_sample_rate_hz_ RTC_GUARDED_BY(worker_thread_checker_) = 0;
   size_t encoder_num_channels_ RTC_GUARDED_BY(worker_thread_checker_) = 0;
@@ -214,6 +215,8 @@ class AudioSendStream final : public webrtc::AudioSendStream,
   bool registered_with_allocator_ RTC_GUARDED_BY(worker_thread_checker_) =
       false;
   absl::optional<std::pair<TimeDelta, TimeDelta>> frame_length_range_
+      RTC_GUARDED_BY(worker_thread_checker_);
+  absl::optional<std::pair<DataRate, DataRate>> bitrate_range_
       RTC_GUARDED_BY(worker_thread_checker_);
 };
 }  // namespace internal
