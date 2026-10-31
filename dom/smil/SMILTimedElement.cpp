@@ -424,6 +424,16 @@ void SMILTimedElement::SetTimeClient(SMILAnimationFunction* aClient) {
   mClient = aClient;
 }
 
+bool SMILTimedElement::IsTimingSettled() const {
+  if (mIsDisabled) {
+    return true;
+  }
+  if (mSeekState != SMILSeekState::NotSeeking) {
+    return false;
+  }
+  return GetNextMilestone().isNothing();
+}
+
 void SMILTimedElement::SampleAt(SMILTime aContainerTime) {
   if (mIsDisabled) return;
 

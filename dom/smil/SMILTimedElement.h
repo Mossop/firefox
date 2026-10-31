@@ -62,6 +62,15 @@ class SMILTimedElement {
    */
   Element* GetTargetElement();
 
+  /*
+   * Returns true if the element is disabled, or if a regular (non-milestone)
+   * sample can't advance its timing model: it has no pending milestone and no
+   * seek to finish.
+   * Between milestones such a sample only updates the time client, which has
+   * no observable effect if the animation has nothing to animate.
+   */
+  bool IsTimingSettled() const;
+
   /**
    * Methods for supporting the ElementTimeControl interface.
    */
