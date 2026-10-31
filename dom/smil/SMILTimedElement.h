@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "mozilla/EventForwards.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/SMILInstanceTime.h"
 #include "mozilla/SMILInterval.h"
 #include "mozilla/SMILMilestone.h"
@@ -518,7 +519,7 @@ class SMILTimedElement {
   // aContainer, if given, must be this element's time container; it lets
   // callers that have already resolved it avoid walking the tree again.
   void RegisterMilestone(SMILTimeContainer* aContainer = nullptr);
-  bool GetNextMilestone(SMILMilestone& aNextMilestone) const;
+  Maybe<SMILMilestone> GetNextMilestone() const;
 
   // Notification methods. Note that these notifications can result in nested
   // calls to this same object. Therefore,
