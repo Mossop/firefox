@@ -449,8 +449,12 @@ class BigInt final : public js::gc::CellWithLengthAndFlags {
   static Digit inplaceSubDigits(Digits x, ConstDigits y);
   // Add `y` to the low `y.size()` digits of `x`, returning the carry.
   static Digit inplaceAddDigits(Digits x, ConstDigits y);
+  // Add one to `x`, returning the carry.
+  static Digit inplaceIncrementDigits(Digits x);
   // Copy `src` into `dest`, which has the same number of digits.
   static void copyDigits(ConstDigits src, Digits dest);
+  // Set all digits of `dest` to zero.
+  static void zeroDigits(Digits dest);
   // Store `src << shift` into `dest`. Return the bits shifted out of the top.
   static Digit leftShiftDigits(ConstDigits src, unsigned shift, Digits dest);
   // Store `src >> shift` into `dest`. Shift the low bits of `high` into the
