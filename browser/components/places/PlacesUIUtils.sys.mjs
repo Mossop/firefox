@@ -907,7 +907,7 @@ export var PlacesUIUtils = {
     let window = aEvent.target.documentGlobal;
 
     let where = lazy.BrowserUtils.whereToOpenLink(aEvent, false, true);
-    if (this.loadUILinkInTab && lazy.PlacesUtils.nodeIsBookmark(aNode)) {
+    if (this.loadUILinkInTab) {
       if (where == "current" && !aNode.uri.startsWith("javascript:")) {
         where = "tab";
       }
