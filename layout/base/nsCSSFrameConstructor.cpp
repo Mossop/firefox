@@ -9797,11 +9797,15 @@ void nsCSSFrameConstructor::WrapFramesInFirstLetterFrame(
         return;
       }
     } else if (IsInlineFrame(frame) && frameType != LayoutFrameType::Br) {
-      nsIFrame* kids = frame->PrincipalChildList().FirstChild();
-      WrapFramesInFirstLetterFrame(aBlockFrame, aBlockContinuation,
-                                   static_cast<nsContainerFrame*>(frame), kids,
-                                   aModifiedParent, aTextFrame, aPrevFrame,
-                                   aLetterFrames, aStopLooking);
+      auto* inlineFrame = static_cast<nsContainerFrame*>(frame);
+      // When recovering first-letter frames, the candidate can be in overflow.
+      if (inlineFrame->GetChildList(FrameChildListID::Overflow).NotEmpty()) {
+        inlineFrame->DrainSelfOverflowList();
+      }
+      nsIFrame* kids = inlineFrame->PrincipalChildList().FirstChild();
+      WrapFramesInFirstLetterFrame(aBlockFrame, aBlockContinuation, inlineFrame,
+                                   kids, aModifiedParent, aTextFrame,
+                                   aPrevFrame, aLetterFrames, aStopLooking);
       if (*aStopLooking) {
         return;
       }
@@ -9937,6 +9941,9 @@ void nsCSSFrameConstructor::RemoveFloatingFirstLetterFrames(
 void nsCSSFrameConstructor::RemoveFirstLetterFrames(
     PresShell* aPresShell, nsContainerFrame* aFrame,
     nsContainerFrame* aBlockFrame, bool* aStopLooking) {
+  // Drain overflow before searching, as the first-letter frame may be in
+  // overflow lines or an inline's overflow list.
+  aFrame->DrainSelfOverflowList();
   nsIFrame* prevSibling = nullptr;
   nsIFrame* kid = aFrame->PrincipalChildList().FirstChild();
 
@@ -10016,9 +10023,11 @@ void nsCSSFrameConstructor::RemoveLetterFrames(PresShell* aPresShell,
 
   bool stopLooking = false;
   do {
-    RemoveFloatingFirstLetterFrames(aPresShell, continuation);
+    // This drains overflow (if present) to ensure we find first-letter frames
+    // that may be pending.
     RemoveFirstLetterFrames(aPresShell, continuation, aBlockFrame,
                             &stopLooking);
+    RemoveFloatingFirstLetterFrames(aPresShell, continuation);
     if (stopLooking) {
       break;
     }
@@ -10041,6 +10050,8 @@ void nsCSSFrameConstructor::RecoverLetterFrames(nsContainerFrame* aBlockFrame) {
   do {
     // XXX shouldn't this bit be set already (bug 408493), assert instead?
     continuation->AddStateBits(NS_BLOCK_HAS_FIRST_LETTER_STYLE);
+    // Removal may have stopped before reaching the new first-letter candidate.
+    continuation->DrainSelfOverflowList();
     WrapFramesInFirstLetterFrame(
         aBlockFrame, continuation, continuation,
         continuation->PrincipalChildList().FirstChild(), &parentFrame,
