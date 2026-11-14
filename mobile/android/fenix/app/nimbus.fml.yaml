@@ -20,13 +20,8 @@ import:
       pdfjs:
         - channel: developer
           value: {
-          download-button: false,
-          open-in-app-button: false
-        }
-        - channel: nightly
-          value: {
-          download-button: false,
-          open-in-app-button: false
+          download-button: true,
+          open-in-app-button: true
         }
   - path: ../../android-components/components/feature/fxsuggest/fxsuggest.fml.yaml
     channel: release
@@ -1367,17 +1362,15 @@ features:
   pdf-viewer:
     description: Feature for the PDF viewer tools for users on Firefox for Android.
     variables:
-      android-ui-tools:
-        description: If true, the Android PDF UI tools are shown.
-        type: Boolean
-        default: false
-    defaults:
-      - channel: developer
-        value:
-          android-ui-tools: true
-      - channel: nightly
-        value:
-          android-ui-tools: true
+      enable-pdf-signatures:
+        description: >
+          If true, the Android PDF UI tools are shown, the PDF.js editor is enabled,
+          and the original PDF.js toolbar is hidden.
+          When no value is set, the build default is used (currently enabled on Nightly).
+        type: Option<Boolean>
+        gecko-pref:
+          pref: "pdfjs.enableAndroidEditing"
+          branch: "default"
 
   tab-reload-cover:
     description: >
