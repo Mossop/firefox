@@ -195,8 +195,15 @@ ContentCompositorBridgeParent::AllocPWebRenderBridgeParent(
     return parent;
   }
 
-  api = api->Clone();
   RefPtr<AsyncImagePipelineManager> holder = root->AsyncImageManager();
+  if (holder->HasLivePipeline(aPipelineId)) {
+    NS_ERROR(
+        "Pipeline already in use in AllocPWebRenderBridgeParent; dropping "
+        "message...");
+    return nullptr;
+  }
+
+  api = api->Clone();
   WebRenderBridgeParent* parent = new WebRenderBridgeParent(
       this, aPipelineId, nullptr, root->CompositorScheduler(), std::move(api),
       std::move(holder), cbp->GetVsyncInterval());
