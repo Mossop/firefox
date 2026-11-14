@@ -3556,11 +3556,8 @@ class Settings(
         )
 
     /** Indicates if the Android PDF tools are enabled for the PDF viewer. */
-    var enablePdfTools by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_enable_pdf_tools),
-            default = { FxNimbus.features.pdfViewer.value().androidUiTools },
-        )
+    val enablePdfTools: Boolean
+        get() = FxNimbus.features.pdfViewer.value().androidUiTools
 
     var accountSettingsNewUi by
         booleanPreference(
