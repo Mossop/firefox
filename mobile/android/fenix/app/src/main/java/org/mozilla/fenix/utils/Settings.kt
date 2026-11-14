@@ -3555,12 +3555,13 @@ class Settings(
             default = { FxNimbus.features.homepageTrendingRecentSearch.value().enabled },
         )
 
-    /** Indicates if the Android PDF tools are enabled for the PDF viewer. */
-    var enablePdfTools by
-        booleanPreference(
-            key = appContext.getPreferenceKey(R.string.pref_key_enable_pdf_tools),
-            default = { FxNimbus.features.pdfViewer.value().androidUiTools },
-        )
+    /**
+     * Indicates if the Android PDF tools are enabled for the PDF viewer.
+     *
+     * When no experiment sets this value, it should follow the same build default as pdfjs.enableAndroidEditing.
+     */
+    val enablePdfTools: Boolean
+        get() = FxNimbus.features.pdfViewer.value().enablePdfSignatures ?: Config.channel.isNightlyOrDebug
 
     var accountSettingsNewUi by
         booleanPreference(
